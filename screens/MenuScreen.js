@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -7,20 +7,14 @@ import {
   SafeAreaView,
   StatusBar,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, Redirect } from 'expo-router';
 import { useApp } from '../context/AppContext';
 
 export default function MenuScreen() {
   const { usuario, logout } = useApp();
   const router = useRouter();
 
-  useEffect(() => {
-    if (!usuario) {
-      router.replace('/login');
-    }
-  }, [usuario]);
-
-  if (!usuario) return null;
+  if (!usuario) return <Redirect href="/login" />;
 
   const isServidor = usuario.tipo === 'servidor';
 

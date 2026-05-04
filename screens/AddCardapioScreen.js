@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -7,41 +7,39 @@ import {
   StyleSheet,
   SafeAreaView,
   TextInput,
-  Alert,
   StatusBar,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, Redirect } from 'expo-router';
 import { useApp } from '../context/AppContext';
 import { itensRefeicao } from '../data/mockData';
+import { showAlert } from '../utils/alert';
 
 const TIPOS = ['Café-da-manhã', 'Almoço', 'Jantar'];
 const TIPO_EMOJI = { 'Café-da-manhã': '☕', 'Almoço': '🍛', 'Jantar': '🌙' };
 
 function getTodayStr() {
   const today = new Date();
-  const y = today.getFullYear();
-  const m = String(today.getMonth() + 1).padStart(2, '0');
   const d = String(today.getDate()).padStart(2, '0');
+  const m = String(today.getMonth() + 1).padStart(2, '0');
+  const y = today.getFullYear();
+  return `${d}/${m}/${y}`;
+}
+
+function toISODate(str) {
+  const [d, m, y] = str.split('/');
   return `${y}-${m}-${d}`;
 }
 
 export default function AddCardapioScreen() {
-  const { usuario, adicionarCardapio } = useApp();
+  const { usuario, cardapios, adicionarCardapio, substituirCardapio } = useApp();
   const router = useRouter();
-
-  useEffect(() => {
-    if (!usuario) {
-      router.replace('/login');
-    } else if (usuario.tipo !== 'servidor') {
-      Alert.alert('Acesso negado', 'Apenas servidores podem criar cardápios.', [
-        { text: 'OK', onPress: () => router.replace('/menu') },
-      ]);
-    }
-  }, [usuario]);
 
   const [data, setData] = useState(getTodayStr());
   const [tipo, setTipo] = useState('Almoço');
   const [itensSelecionados, setItensSelecionados] = useState([]);
+
+  if (!usuario) return <Redirect href="/login" />;
+  if (usuario.tipo !== 'servidor') return <Redirect href="/menu" />;
 
   const toggleItem = (item) => {
     setItensSelecionados((prev) =>
@@ -49,26 +47,48 @@ export default function AddCardapioScreen() {
     );
   };
 
-  const validarData = (str) => /^\d{4}-\d{2}-\d{2}$/.test(str);
+  const validarData = (str) => /^\d{2}\/\d{2}\/\d{4}$/.test(str);
 
   const handleSalvar = () => {
     if (!validarData(data)) {
-      Alert.alert('Data inválida', 'Use o formato AAAA-MM-DD.\nExemplo: 2026-05-04');
+      showAlert('Data inválida', 'Use o formato DD/MM/AAAA.\nExemplo: 04/05/2026');
       return;
     }
     if (itensSelecionados.length === 0) {
-      Alert.alert('Selecione itens', 'Escolha pelo menos um item para a refeição.');
+      showAlert('Selecione itens', 'Escolha pelo menos um item para a refeição.');
       return;
     }
-    adicionarCardapio({ data, tipo, itens: itensSelecionados });
-    Alert.alert(
-      '✅ Cardápio salvo!',
-      `${tipo} do dia ${data} foi adicionado com sucesso.`,
-      [{ text: 'OK', onPress: () => router.back() }]
-    );
-  };
 
-  if (!usuario || usuario.tipo !== 'servidor') return null;
+    const dataISO = toISODate(data);
+    const duplicado = cardapios.find((c) => c.data === dataISO && c.tipo === tipo);
+
+    console.log("DATA ISO:", dataISO);
+    console.log("TIPO:", tipo);
+    
+    if (duplicado) {
+      console.log("CARDAPIOS:", cardapios);
+      showAlert(
+        '⚠️ Cardápio já existe',
+        `Já existe um cardápio de ${tipo} para o dia ${data}.\n\nDeseja substituí-lo pelos novos itens?`,
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          {
+            text: 'Substituir',
+            style: 'destructive',
+            onPress: () => {
+              substituirCardapio({ data: dataISO, tipo, itens: itensSelecionados });
+              showAlert('✅ Substituído!', `${tipo} do dia ${data} foi atualizado com sucesso.`);
+              router.back();
+            },
+          },
+        ]
+      );
+    } else {
+      adicionarCardapio({ data: dataISO, tipo, itens: itensSelecionados });
+      showAlert('✅ Cardápio salvo!', `${tipo} do dia ${data} foi adicionado com sucesso.`);
+      router.back();
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -87,18 +107,18 @@ export default function AddCardapioScreen() {
 
         {/* Data */}
         <View style={styles.secao}>
-          <Text style={styles.label}>📅 Data (AAAA-MM-DD)</Text>
+          <Text style={styles.label}>📅 Data (DD/MM/AAAA)</Text>
           <TextInput
             style={[styles.input, !validarData(data) && data.length > 0 && styles.inputErro]}
             value={data}
             onChangeText={setData}
-            placeholder="Ex: 2026-05-04"
+            placeholder="Ex: 04/05/2026"
             placeholderTextColor="#aaa"
             maxLength={10}
             keyboardType="numeric"
           />
           {data.length > 0 && !validarData(data) && (
-            <Text style={styles.erroTexto}>Formato inválido. Use AAAA-MM-DD</Text>
+            <Text style={styles.erroTexto}>Formato inválido. Use DD/MM/AAAA</Text>
           )}
         </View>
 
