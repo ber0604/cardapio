@@ -74,32 +74,8 @@ export default function CardapioScreen() {
     .map((tipo) => cardapiosDoDia.find((c) => c.tipo === tipo))
     .filter(Boolean);
 
-  const handleGerarPDF = async () => {
-    const NOMES_DIA_COMPLETO = ['Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado', 'Domingo'];
-
-    const diasHtml = weekDays.map((dia, index) => {
-      const diaStr = formatDate(dia);
-      const cardapiosDia = TIPOS_ORDEM
-        .map((tipo) => cardapios.find((c) => c.data === diaStr && c.tipo === tipo))
-        .filter(Boolean);
-
-      if (cardapiosDia.length === 0) return '';
-
-      const refeicoesHtml = cardapiosDia.map((c) => `
-        <div class="refeicao">
-          <h3>${TIPO_EMOJI[c.tipo] || ''} ${c.tipo}</h3>
-          <ul>${c.itens.map((i) => `<li>${i}</li>`).join('')}</ul>
-        </div>
-      `).join('');
-
-      return `
-        <div class="dia">
-          <h2>${NOMES_DIA_COMPLETO[index]} — ${formatDateDisplay(dia)}</h2>
-          ${refeicoesHtml}
-        </div>
-      `;
-    }).join('');
-
+  const handleCompartilharCardapio = async (cardapio) => {
+    const itensHtml = cardapio.itens.map((i) => `<li>${i}</li>`).join('');
     const html = `
       <!DOCTYPE html>
       <html>
@@ -107,34 +83,32 @@ export default function CardapioScreen() {
         <meta charset="utf-8">
         <style>
           body { font-family: Arial, sans-serif; margin: 32px; color: #222; }
-          h1 { color: #1a472a; font-size: 22px; margin-bottom: 4px; }
-          .subtitulo { color: #555; font-size: 13px; margin-bottom: 24px; }
-          .dia { margin-bottom: 24px; page-break-inside: avoid; }
-          .dia h2 { color: #1a472a; font-size: 16px; border-bottom: 2px solid #1a472a; padding-bottom: 4px; margin-bottom: 10px; }
-          .refeicao { margin-bottom: 10px; padding-left: 8px; }
-          .refeicao h3 { color: #444; font-size: 13px; margin: 0 0 4px; }
-          ul { margin: 0; padding-left: 18px; }
-          li { font-size: 12px; color: #555; margin-bottom: 2px; }
+          h1 { color: #1a472a; font-size: 20px; margin-bottom: 4px; }
+          .info { color: #555; font-size: 13px; margin-bottom: 16px; }
+          ul { padding-left: 20px; }
+          li { font-size: 14px; color: #444; margin-bottom: 4px; }
         </style>
       </head>
       <body>
-        <h1>🍽️ Cardápio Universitário</h1>
-        <p class="subtitulo">Semana de ${formatDateDisplay(weekDays[0])} a ${formatDateDisplay(weekDays[6])}</p>
-        ${diasHtml || '<p>Nenhum cardápio cadastrado para esta semana.</p>'}
+        <h1>${TIPO_EMOJI[cardapio.tipo] || '\uD83C\uDF7D\uFE0F'} ${cardapio.tipo}</h1>
+        <p class="info">\uD83D\uDCC5 ${formatDatePtBr(cardapio.data)}</p>
+        <ul>${itensHtml}</ul>
       </body>
       </html>
     `;
-
     try {
       const { uri } = await Print.printToFileAsync({ html });
       const disponivel = await Sharing.isAvailableAsync();
       if (disponivel) {
-        await Sharing.shareAsync(uri, { mimeType: 'application/pdf', dialogTitle: 'Cardápio da Semana' });
+        await Sharing.shareAsync(uri, {
+          mimeType: 'application/pdf',
+          dialogTitle: `${cardapio.tipo} — ${formatDatePtBr(cardapio.data)}`,
+        });
       } else {
         Alert.alert('PDF gerado', `Arquivo salvo em:\n${uri}`);
       }
     } catch {
-      Alert.alert('Erro', 'Não foi possível gerar o PDF.');
+      Alert.alert('Erro', 'Não foi possível compartilhar o cardápio.');
     }
   };
 
@@ -256,7 +230,7 @@ export default function CardapioScreen() {
                       </Text>
                     </TouchableOpacity>
                     <TouchableOpacity
-                      onPress={handleGerarPDF}
+                      onPress={() => handleCompartilharCardapio(cardapio)}
                       style={styles.acaoBtn}
                       activeOpacity={0.7}
                     >
