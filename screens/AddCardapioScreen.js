@@ -49,6 +49,19 @@ export default function AddCardapioScreen() {
 
   const validarData = (str) => /^\d{2}\/\d{2}\/\d{4}$/.test(str);
 
+  const handleDataChange = (text) => {
+    // Remove tudo que não for dígito
+    const digits = text.replace(/\D/g, '').slice(0, 8);
+    let formatted = digits;
+    if (digits.length >= 3) {
+      formatted = digits.slice(0, 2) + '/' + digits.slice(2);
+    }
+    if (digits.length >= 5) {
+      formatted = digits.slice(0, 2) + '/' + digits.slice(2, 4) + '/' + digits.slice(4);
+    }
+    setData(formatted);
+  };
+
   const handleSalvar = () => {
     if (!validarData(data)) {
       showAlert('Data inválida', 'Use o formato DD/MM/AAAA.\nExemplo: 04/05/2026');
@@ -61,12 +74,8 @@ export default function AddCardapioScreen() {
 
     const dataISO = toISODate(data);
     const duplicado = cardapios.find((c) => c.data === dataISO && c.tipo === tipo);
-
-    console.log("DATA ISO:", dataISO);
-    console.log("TIPO:", tipo);
     
     if (duplicado) {
-      console.log("CARDAPIOS:", cardapios);
       showAlert(
         '⚠️ Cardápio já existe',
         `Já existe um cardápio de ${tipo} para o dia ${data}.\n\nDeseja substituí-lo pelos novos itens?`,
@@ -111,7 +120,7 @@ export default function AddCardapioScreen() {
           <TextInput
             style={[styles.input, !validarData(data) && data.length > 0 && styles.inputErro]}
             value={data}
-            onChangeText={setData}
+            onChangeText={handleDataChange}
             placeholder="Ex: 04/05/2026"
             placeholderTextColor="#aaa"
             maxLength={10}
