@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const STORAGE_KEY = '@cardapios';
+const FAVORITOS_KEY = (username) => `@favoritos_${username}`;
 const AppContext = createContext(null);
 
 export function AppProvider({ children }) {
@@ -9,6 +10,7 @@ export function AppProvider({ children }) {
   const [cardapios, setCardapios] = useState([]);
   const [favoritos, setFavoritos] = useState([]);
   const [loaded, setLoaded] = useState(false);
+  const [favoritosLoaded, setFavoritosLoaded] = useState(false);
 
   // Carrega os cardápios salvos no AsyncStorage ao iniciar
   useEffect(() => {
@@ -19,18 +21,39 @@ export function AppProvider({ children }) {
       .finally(() => setLoaded(true));
   }, []);
 
-  // Persiste no AsyncStorage sempre que cardapios mudar (só após o carregamento inicial)
+  // Persiste cardapios no AsyncStorage sempre que mudar (só após o carregamento inicial)
   useEffect(() => {
     if (loaded) {
       AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(cardapios));
     }
   }, [cardapios, loaded]);
 
+  // Carrega os favoritos do usuário ao fazer login
+  useEffect(() => {
+    if (usuario) {
+      setFavoritosLoaded(false);
+      AsyncStorage.getItem(FAVORITOS_KEY(usuario.username))
+        .then((json) => {
+          setFavoritos(json ? JSON.parse(json) : []);
+        })
+        .finally(() => setFavoritosLoaded(true));
+    } else {
+      setFavoritosLoaded(false);
+    }
+  }, [usuario?.username]);
+
+  // Persiste favoritos no AsyncStorage sempre que mudar (só após carregar)
+  useEffect(() => {
+    if (usuario && favoritosLoaded) {
+      AsyncStorage.setItem(FAVORITOS_KEY(usuario.username), JSON.stringify(favoritos));
+    }
+  }, [favoritos, favoritosLoaded, usuario]);
+
   const login = (user) => setUsuario(user);
 
   const logout = () => {
     setUsuario(null);
-    setFavoritos([]);
+    setFavoritos([]); // Limpa da memória; favoritos ficam salvos no AsyncStorage para o próximo login
   };
 
   const toggleFavorito = (cardapioId) => {
