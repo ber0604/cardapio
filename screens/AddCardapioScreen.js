@@ -9,7 +9,7 @@ import {
   TextInput,
   StatusBar,
 } from 'react-native';
-import { useRouter, Redirect } from 'expo-router';
+import { useRouter, Redirect, useLocalSearchParams } from 'expo-router';
 import { useApp } from '../context/AppContext';
 import { itensRefeicao } from '../data/mockData';
 import { showAlert } from '../utils/alert';
@@ -30,13 +30,21 @@ function toISODate(str) {
   return `${y}-${m}-${d}`;
 }
 
-export default function AddCardapioScreen() {
-  const { usuario, cardapios, adicionarCardapio, substituirCardapio } = useApp();
-  const router = useRouter();
+function toDisplayDate(str) {
+  const [y, m, d] = str.split('-');
+  return `${d}/${m}/${y}`;
+}
 
-  const [data, setData] = useState(getTodayStr());
-  const [tipo, setTipo] = useState('Almoço');
-  const [itensSelecionados, setItensSelecionados] = useState([]);
+export default function AddCardapioScreen() {
+  const { usuario, cardapios, adicionarCardapio, substituirCardapio, editarCardapio } = useApp();
+  const router = useRouter();
+  const { id } = useLocalSearchParams();
+
+  const cardapioParaEditar = id ? cardapios.find((c) => String(c.id) === String(id)) : null;
+
+  const [data, setData] = useState(cardapioParaEditar ? toDisplayDate(cardapioParaEditar.data) : getTodayStr());
+  const [tipo, setTipo] = useState(cardapioParaEditar ? cardapioParaEditar.tipo : 'Almoço');
+  const [itensSelecionados, setItensSelecionados] = useState(cardapioParaEditar ? cardapioParaEditar.itens : []);
 
   if (!usuario) return <Redirect href="/login" />;
   if (usuario.tipo !== 'servidor') return <Redirect href="/menu" />;
@@ -73,29 +81,46 @@ export default function AddCardapioScreen() {
     }
 
     const dataISO = toISODate(data);
-    const duplicado = cardapios.find((c) => c.data === dataISO && c.tipo === tipo);
-    
-    if (duplicado) {
-      showAlert(
-        '⚠️ Cardápio já existe',
-        `Já existe um cardápio de ${tipo} para o dia ${data}.\n\nDeseja substituí-lo pelos novos itens?`,
-        [
-          { text: 'Cancelar', style: 'cancel' },
-          {
-            text: 'Substituir',
-            style: 'destructive',
-            onPress: () => {
-              substituirCardapio({ data: dataISO, tipo, itens: itensSelecionados });
-              showAlert('✅ Substituído!', `${tipo} do dia ${data} foi atualizado com sucesso.`);
-              router.back();
-            },
-          },
-        ]
+
+    if (id) {
+      const duplicado = cardapios.find(
+        (c) => c.data === dataISO && c.tipo === tipo && String(c.id) !== String(id)
       );
-    } else {
-      adicionarCardapio({ data: dataISO, tipo, itens: itensSelecionados });
-      showAlert('✅ Cardápio salvo!', `${tipo} do dia ${data} foi adicionado com sucesso.`);
+      if (duplicado) {
+        showAlert(
+          '⚠️ Conflito de data/tipo',
+          `Já existe outro cardápio de ${tipo} cadastrado para o dia ${data}.`
+        );
+        return;
+      }
+      editarCardapio(id, { data: dataISO, tipo, itens: itensSelecionados });
+      showAlert('✅ Atualizado!', `O cardápio de ${tipo} do dia ${data} foi atualizado com sucesso.`);
       router.back();
+    } else {
+      const duplicado = cardapios.find((c) => c.data === dataISO && c.tipo === tipo);
+      
+      if (duplicado) {
+        showAlert(
+          '⚠️ Cardápio já existe',
+          `Já existe um cardápio de ${tipo} para o dia ${data}.\n\nDeseja substituí-lo pelos novos itens?`,
+          [
+            { text: 'Cancelar', style: 'cancel' },
+            {
+              text: 'Substituir',
+              style: 'destructive',
+              onPress: () => {
+                substituirCardapio({ data: dataISO, tipo, itens: itensSelecionados });
+                showAlert('✅ Substituído!', `${tipo} do dia ${data} foi atualizado com sucesso.`);
+                router.back();
+              },
+            },
+          ]
+        );
+      } else {
+        adicionarCardapio({ data: dataISO, tipo, itens: itensSelecionados });
+        showAlert('✅ Cardápio salvo!', `${tipo} do dia ${data} foi adicionado com sucesso.`);
+        router.back();
+      }
     }
   };
 
@@ -104,12 +129,14 @@ export default function AddCardapioScreen() {
       <StatusBar barStyle="light-content" backgroundColor="#1565c0" />
 
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, id && styles.headerEdit]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.voltarBtn}>
           <Text style={styles.voltarTexto}>‹ Voltar</Text>
         </TouchableOpacity>
-        <Text style={styles.titulo}>Criar Cardápio</Text>
-        <Text style={styles.subtitulo}>Preencha os dados da refeição</Text>
+        <Text style={styles.titulo}>{id ? 'Editar Cardápio' : 'Criar Cardápio'}</Text>
+        <Text style={styles.subtitulo}>
+          {id ? 'Modifique os dados da refeição' : 'Preencha os dados da refeição'}
+        </Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.form} showsVerticalScrollIndicator={false}>
@@ -202,7 +229,7 @@ export default function AddCardapioScreen() {
           onPress={handleSalvar}
           activeOpacity={0.85}
         >
-          <Text style={styles.salvarTexto}>✓  Salvar Cardápio</Text>
+          <Text style={styles.salvarTexto}>{id ? '✓  Salvar Alterações' : '✓  Salvar Cardápio'}</Text>
         </TouchableOpacity>
 
         <View style={{ height: 40 }} />
@@ -219,6 +246,9 @@ const styles = StyleSheet.create({
     paddingTop: 40,
     paddingBottom: 20,
     paddingHorizontal: 20,
+  },
+  headerEdit: {
+    backgroundColor: '#e65100',
   },
   voltarBtn: { marginBottom: 10 },
   voltarTexto: { color: '#aed6f1', fontSize: 16 },

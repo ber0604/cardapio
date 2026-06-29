@@ -220,6 +220,15 @@ export default function CardapioScreen() {
                     <Text style={styles.cardTipo}>{cardapio.tipo}</Text>
                   </View>
                   <View style={styles.acoes}>
+                    {usuario.tipo === 'servidor' && (
+                      <TouchableOpacity
+                        onPress={() => router.push({ pathname: '/add-cardapio', params: { id: cardapio.id } })}
+                        style={styles.acaoBtn}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={styles.editIcone}>✏️</Text>
+                      </TouchableOpacity>
+                    )}
                     <TouchableOpacity
                       onPress={() => toggleFavorito(cardapio.id)}
                       style={styles.acaoBtn}
@@ -391,6 +400,7 @@ const styles = StyleSheet.create({
   },
   favIcone: { fontSize: 22 },
   shareIcone: { fontSize: 20 },
+  editIcone: { fontSize: 20 },
 
   divisor: {
     height: 1,
