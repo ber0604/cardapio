@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { generateMockCardapios } from '../data/mockData';
 
 const STORAGE_KEY = '@cardapios';
 const FAVORITOS_KEY = (username) => `@favoritos_${username}`;
@@ -16,7 +17,16 @@ export function AppProvider({ children }) {
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEY)
       .then((json) => {
-        if (json) setCardapios(JSON.parse(json));
+        if (json) {
+          const parsed = JSON.parse(json);
+          if (parsed && parsed.length > 0) {
+            setCardapios(parsed);
+            return;
+          }
+        }
+        // Se estiver vazio ou não existir, preenche com os dados mocados
+        const mock = generateMockCardapios();
+        setCardapios(mock);
       })
       .finally(() => setLoaded(true));
   }, []);
@@ -78,6 +88,17 @@ export function AppProvider({ children }) {
     ]);
   };
 
+  const editarCardapio = (id, cardapioAtualizado) => {
+    setCardapios((prev) =>
+      prev.map((c) => (String(c.id) === String(id) ? { ...c, ...cardapioAtualizado } : c))
+    );
+  };
+
+  const resetarCardapios = () => {
+    const mock = generateMockCardapios();
+    setCardapios(mock);
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -89,6 +110,8 @@ export function AppProvider({ children }) {
         toggleFavorito,
         adicionarCardapio,
         substituirCardapio,
+        editarCardapio,
+        resetarCardapios,
       }}
     >
       {children}
